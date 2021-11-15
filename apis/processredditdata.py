@@ -11,12 +11,35 @@ import time
 import pandas as pd 
 import re
 from sqlalchemy import create_engine
+from processvolumedata import fetch_data
+import processvolumedata
+import mysql.connector
 
 engine = create_engine('mysql+pymysql://root:root@localhost/reddit_data')
 analyzer = SentimentIntensityAnalyzer()
 
 
+#connect to a mysql server 
+mydb = mysql.connector.connect(
+host ="localhost",
+user ="root",
+passwd = "root"
+)
 
+mycursor = mydb.cursor()
+
+# Create a database for storing reddit data 
+mycursor.execute("CREATE DATABASE IF NOT EXISTS reddit_data")
+
+# Title and body would be used for the sentiment analysis and for counting the number of times a particular ticker is mentioned 
+mycursor.execute("""CREATE TABLE IF NOT EXISTS reddit_data.mostmentioned (Term VARCHAR(500),
+                Company_Name VARCHAR(500),
+                Frequency VARCHAR(50),
+                Sentiment VARCHAR(500),
+                VolumeMetric VARCHAR(500),
+                PriceMetric VARCHAR(500)
+                )
+                """)
 
 #Initialize reddit api here 
 reddit = praw.Reddit(
@@ -30,7 +53,7 @@ print(reddit.read_only)
 
 def process_data():
     df = []
-    for post in reddit.subreddit('wallstreetbets+investing+stocks+pennystocks+weedstocks+StockMarket+Trading+Daytrading+algotrading').hot(limit=20000):
+    for post in reddit.subreddit('wallstreetbets+investing+stocks+pennystocks+weedstocks+StockMarket+Trading+Daytrading+algotrading').hot(limit=500):
         vs = analyzer.polarity_scores(unidecode(post.title + post.selftext))
         sentiment = vs['compound']
         content = {
@@ -63,11 +86,15 @@ def process_data():
                 word_dict[x][1].append(sent)
             else:
                 word_dict[x] = [1, [sent]]
+
     final_list = []
+    tick = pd.read_csv('ticker.csv')
     for key, value in word_dict.items():
-        final_list.append((key, str(value[0]), average(value[1])))
+        if key in list(tick['Symbol']):
+            volume_data = fetch_data(key)
+            final_list.append((key, str(value[0]), average(value[1]), volume_data[0], volume_data[1]))
     
-    word_df = pd.DataFrame.from_records(final_list).rename(columns = {0:"Term", 1:"Frequency", 2:"Sentiment"})
+    word_df = pd.DataFrame.from_records(final_list).rename(columns = {0:"Term", 1:"Frequency", 2:"Sentiment", 3:"VolumeMetric", 4:"PriceMetric"})
     # print(word_df)
     ticker_df = pd.read_csv('ticker.csv').rename(columns = {"Symbol":"Term", "Name":"Company_Name"})
     stonks_df = pd.merge(ticker_df, word_df, on="Term")

@@ -1,14 +1,18 @@
 import React, { Component } from "react";
 import Chart from "react-google-charts";
+// import logo from "img.JPG"
 
 class Chart1 extends Component {
+    
     constructor(props) {
         super();
+        
         this.state = {
             error: null,
             isLoaded: false,
             chartData: [],
             sentimentData: [],
+            full_data: [],
         };
     }
     getChartData = () => {
@@ -26,8 +30,11 @@ class Chart1 extends Component {
                     this.setState({
                         isLoaded: true,
                         chartData: chartData,
+                        sentimentData: result.result,
                     });
                     console.log(chartData);
+                    console.log(result);
+                    
                 },
                 (error) => {
                     this.setState({
@@ -115,7 +122,11 @@ class Chart1 extends Component {
                         }}
                         legendToggle
                     />
+                    
                     </div>
+                    {/* <div>
+                        <img src={process.env.PUBLIC_URL +'/components/js/charts/img.JPG'} height='400px' width='400px'></img>
+                    </div> */}
                 </React.Fragment>
             );
         }
